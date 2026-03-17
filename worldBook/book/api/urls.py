@@ -5,6 +5,7 @@ from .views import (
     ApproveParagraphSubmissionView,
     PendingSubmissionsListView,
     BookReadView,
+    MySubmissionStatusView,
 )
 
 urlpatterns = [
@@ -24,5 +25,10 @@ urlpatterns = [
         "submissions/pending/",
         PendingSubmissionsListView.as_view(),
         name="pending-submissions",
+    ),
+    path(
+        "chapters/<int:chapter_id>/my-status/",
+        MySubmissionStatusView.as_view(),
+        name="my-submission-status",
     ),
 ]

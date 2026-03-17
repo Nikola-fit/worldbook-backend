@@ -65,9 +65,13 @@ class ApproveParagraphSubmissionView(APIView):
         submission.approved_by = request.user
         submission.save()
 
-        # Save paragraph into chapter
+        # Append paragraph to chapter content
         chapter = submission.chapter
-        chapter.content = submission.paragraph
+        chapter.content = (
+            (chapter.content + "\n\n" + submission.paragraph).strip()
+            if chapter.content
+            else submission.paragraph
+        )
         chapter.save()
 
         # Delete all other pending submissions for this chapter
@@ -100,3 +104,31 @@ class BookReadView(generics.RetrieveAPIView):
     serializer_class = BookReadSerializer
     lookup_field = "id"
     permission_classes = [AllowAny]
+
+
+class MySubmissionStatusView(APIView):
+    """
+    GET /book/chapters/<chapter_id>/my-status/
+
+    Vraća status submission-a za ulogovanog korisnika i dato poglavlje.
+
+    Response:
+        { "status": "none" | "pending" | "approved" | "rejected" }
+
+    - "none"     → korisnik nije submittovao za ovo poglavlje
+    - "pending"  → submittovano, čeka odobrenje
+    - "approved" → odobreno
+    - "rejected" → odbijeno
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chapter_id):
+        try:
+            submission = ParagraphSubmission.objects.get(
+                chapter_id=chapter_id,
+                user=request.user,
+            )
+            return Response({"status": submission.status})
+        except ParagraphSubmission.DoesNotExist:
+            return Response({"status": "none"})
