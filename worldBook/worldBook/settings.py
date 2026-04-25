@@ -24,13 +24,18 @@ file_path = os.path.join(BASE_DIR, "db.cnf")
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-t6=wsrra*bxz3rcq33itfo6sl#_@91edt3f64$_f)lkxn+5%u_"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "api.worldbookapp.com",
+    ".railway.app",
+    ".onrender.com",
+]
 
 # Application definition
 
@@ -42,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "rest_framework",
     "book",
@@ -49,7 +55,7 @@ INSTALLED_APPS = [
 ]
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -60,8 +66,15 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://worldbookapp.com",
+    "https://www.worldbookapp.com",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://worldbookapp.com",
+    "https://www.worldbookapp.com",
+    "https://api.worldbookapp.com",
+]
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -109,13 +122,12 @@ WSGI_APPLICATION = "worldBook.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "HOST": "127.0.0.1",
-        "PORT": "3306",
-        "PASSWORD": "1234",
-        "NAME": "world_book1",
-        "USER": "root",
+        "HOST": os.environ.get("MYSQLHOST", "127.0.0.1"),
+        "PORT": os.environ.get("MYSQLPORT", "3306"),
+        "NAME": os.environ.get("MYSQLDATABASE", "world_book1"),
+        "USER": os.environ.get("MYSQLUSER", "root"),
+        "PASSWORD": os.environ.get("MYSQLPASSWORD", "1234"),
         "OPTIONS": {
-            "read_default_file": file_path,
             "init_command": "SET default_storage_engine=INNODB",
         },
     }
@@ -157,7 +169,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
