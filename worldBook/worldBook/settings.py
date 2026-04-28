@@ -71,6 +71,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://worldbook-backend-production.up.railway.app",
     "https://worldbookapp.com",
     "https://www.worldbookapp.com",
     "https://api.worldbookapp.com",
