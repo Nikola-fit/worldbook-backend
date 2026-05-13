@@ -70,6 +70,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.worldbookapp.com",
 ]
 
+
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://worldbook-frontend.*\.vercel\.app$",
 ]
@@ -79,6 +80,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://worldbookapp.com",
     "https://www.worldbookapp.com",
     "https://api.worldbookapp.com",
+    "https://worldbook-frontend-hssw.vercel.app",
 ]
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
