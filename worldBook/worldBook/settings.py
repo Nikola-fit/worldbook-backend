@@ -70,6 +70,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.worldbookapp.com",
 ]
 
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://worldbook-frontend.*\.vercel\.app$",
+]
+
 CSRF_TRUSTED_ORIGINS = [
     "https://worldbook-backend-production.up.railway.app",
     "https://worldbookapp.com",
