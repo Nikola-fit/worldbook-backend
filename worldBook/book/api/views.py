@@ -1,7 +1,8 @@
 from rest_framework import generics, status, serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.db.models import Prefetch
 from book.models import Book, Chapter, ParagraphSubmission
-from .permissions import IsSuperUser
+from .permissions import IsSuperUser, can_view_all_submissions
 from .serializers import (
     BookSerializer,
     ParagraphSubmissionSerializer,
@@ -12,10 +13,18 @@ from rest_framework.response import Response
 
 
 class BookDetailView(generics.RetrieveAPIView):
-    queryset = Book.objects.prefetch_related("chapters__submissions").all()
+    queryset = Book.objects.all()
     serializer_class = BookSerializer
     lookup_field = "id"
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        submissions = ParagraphSubmission.objects.all()
+        if not can_view_all_submissions(self.request.user):
+            submissions = submissions.filter(user=self.request.user)
+        return super().get_queryset().prefetch_related(
+            Prefetch("chapters__submissions", queryset=submissions)
+        )
 
 
 class ParagraphSubmissionCreateView(generics.CreateAPIView):

@@ -1,0 +1,17 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div class="module" style="padding:16px;box-sizing:border-box">
+    <h2>Paragraph review</h2>
+    <p>Open a paragraph preview to read the full submission. Use search and filters to find an author, book, chapter or submission date.</p>
+    <p>
+        <a href="?status__exact=pending">Pending submissions</a>
+        &middot;
+        <a href="?">All submissions</a>
+    </p>
+    {% if can_moderate_submissions %}
+    <p><strong>Approval publishes the selected paragraph and removes other pending submissions for the same chapter.</strong> Select only one submission per chapter. Rejection keeps the submission in the review history.</p>
+    {% endif %}
+</div>
+{{ block.super }}
+{% endblock %}

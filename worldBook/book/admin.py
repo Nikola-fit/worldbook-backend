@@ -1,7 +1,15 @@
 from django.contrib import admin, messages
 from django.db import transaction
+from django.utils.html import format_html
+from django.utils.formats import date_format
+from django.utils.timezone import localtime
 
 from .models import Book, Chapter, ParagraphSubmission
+
+
+admin.site.site_header = "WorldBook Administration"
+admin.site.site_title = "WorldBook Admin"
+admin.site.index_title = "Books and paragraph review"
 
 
 @admin.register(Book)
@@ -21,54 +29,127 @@ class ChapterAdmin(admin.ModelAdmin):
 
 @admin.register(ParagraphSubmission)
 class ParagraphSubmissionAdmin(admin.ModelAdmin):
+    change_list_template = "admin/book/paragraphsubmission/change_list.html"
     list_display = (
-        "id",
-        "chapter",
-        "user",
-        "status",
         "short_paragraph",
-        "created_at",
+        "status_badge",
+        "author",
+        "chapter_summary",
+        "submitted_on",
+    )
+    list_display_links = ("short_paragraph",)
+    list_select_related = ("user", "chapter__book", "approved_by")
+    list_filter = ("status", "chapter__book", "chapter", "created_at")
+    search_fields = (
+        "paragraph", "user__username", "user__email", "chapter__title",
+        "chapter__book__title",
+    )
+    search_help_text = "Search paragraph text, author, email, book or chapter title."
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    list_per_page = 25
+
+    # Review the original submission; moderation is performed through actions.
+    readonly_fields = (
+        "paragraph_text", "chapter", "user", "status_badge", "created_at",
         "approved_by",
     )
-    list_filter = ("status", "chapter")
-    search_fields = ("paragraph", "user__username", "chapter__title")
-    ordering = ("-created_at",)
-
-    # da se vidi cijeli pasus u detaljima i da se ne mijenja slučajno
-    readonly_fields = ("paragraph", "created_at", "approved_by")
 
     fieldsets = (
         (
-            "Osnovne informacije",
-            {"fields": ("chapter", "user", "status", "created_at", "approved_by")},
+            "Submitted paragraph",
+            {
+                "fields": ("paragraph_text",),
+                "description": "The author's original text. Return to the list to approve or reject pending submissions.",
+            },
         ),
         (
-            "Sadržaj pasusa",
+            "Submission details",
             {
-                "fields": ("paragraph",),
-                "description": "Cijeli tekst koji je korisnik poslao.",
+                "fields": ("status_badge", "user", "chapter", "created_at", "approved_by"),
             },
         ),
     )
 
     actions = ("approve_selected", "reject_selected")
 
+    def has_add_permission(self, request):
+        # Submissions are created by their authors through the application.
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = {
+            **(extra_context or {}),
+            "can_moderate_submissions": self.has_change_permission(request),
+            "title": "Submitted paragraphs",
+        }
+        return super().changelist_view(request, extra_context)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = {
+            **(extra_context or {}),
+            "show_save": False,
+            "show_save_and_continue": False,
+            "show_save_and_add_another": False,
+            "title": "Review submitted paragraph",
+        }
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    @admin.display(description="Paragraph preview")
     def short_paragraph(self, obj):
         if not obj.paragraph:
             return "-"
         text = obj.paragraph.strip()
-        return text[:100] + ("…" if len(text) > 100 else "")
+        return text[:160] + ("…" if len(text) > 160 else "")
 
-    short_paragraph.short_description = "Paragraph preview"
+    @admin.display(description="Status", ordering="status")
+    def status_badge(self, obj):
+        colors = {
+            "pending": ("#fff3cd", "#664d03"),
+            "approved": ("#d1e7dd", "#0f5132"),
+            "rejected": ("#f8d7da", "#842029"),
+        }
+        background, color = colors.get(obj.status, ("#e9ecef", "#343a40"))
+        return format_html(
+            '<span style="background:{};color:{};padding:4px 9px;'
+            'border-radius:12px;font-weight:600;white-space:nowrap">{}</span>',
+            background, color, obj.get_status_display(),
+        )
 
-    @admin.action(description="Approve selected submissions (append to chapter)")
+    @admin.display(description="Author", ordering="user__username")
+    def author(self, obj):
+        return obj.user.username
+
+    @admin.display(description="Book / chapter", ordering="chapter__chapter_number")
+    def chapter_summary(self, obj):
+        return format_html(
+            '<strong>{}</strong><br>Chapter {}: {}',
+            obj.chapter.book.title, obj.chapter.chapter_number, obj.chapter.title,
+        )
+
+    @admin.display(description="Submitted", ordering="created_at")
+    def submitted_on(self, obj):
+        return date_format(localtime(obj.created_at), "d M Y")
+
+    @admin.display(description="Full paragraph")
+    def paragraph_text(self, obj):
+        return format_html(
+            '<div style="white-space:pre-wrap;overflow-wrap:anywhere;'
+            'max-width:900px;font-size:16px;line-height:1.7">{}</div>',
+            obj.paragraph or "-",
+        )
+
+    @admin.action(
+        description="Approve selected submissions (publish to chapter)",
+        permissions=["change"],
+    )
     def approve_selected(self, request, queryset):
         pending = queryset.select_related("chapter").filter(status="pending")
 
         if not pending.exists():
             self.message_user(
                 request,
-                "Nema pending submissiona za approve.",
+                "No pending submissions were selected.",
                 level=messages.WARNING,
             )
             return
@@ -108,11 +189,11 @@ class ParagraphSubmissionAdmin(admin.ModelAdmin):
 
         self.message_user(
             request,
-            f"Odobreno i dodato u poglavlje: {approved_count} submission(a).",
+            f"Published {approved_count} submission(s) to their chapters.",
             level=messages.SUCCESS,
         )
 
-    @admin.action(description="Reject selected submissions")
+    @admin.action(description="Reject selected submissions", permissions=["change"])
     def reject_selected(self, request, queryset):
         pending = queryset.filter(status="pending")
         updated = 0
@@ -126,6 +207,6 @@ class ParagraphSubmissionAdmin(admin.ModelAdmin):
 
         self.message_user(
             request,
-            f"Odbijeno: {updated} submission(a).",
+            f"Rejected {updated} submission(s).",
             level=messages.SUCCESS,
         )
